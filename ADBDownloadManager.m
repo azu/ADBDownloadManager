@@ -37,7 +37,7 @@
 - (instancetype)initWithLocalPathFolder:(NSString *)localPathFolder
 {
     NSAssert(localPathFolder != nil, @"localPathFolder must not be nil");
-    
+
     self = [super init];
     if (self) {
         _failedURLs = [NSMutableArray array];
@@ -51,19 +51,19 @@
         _baseRemoteURL = @"";
         _callbackQueue = dispatch_get_main_queue();
     }
-    
+
     return self;
 }
 
 - (instancetype)initWithBaseRemoteURL:(NSString *)baseRemoteURL localPathFolder:(NSString *)localPathFolder
 {
     NSAssert(baseRemoteURL != nil, @"baseRemoteURL must not be nil");
-    
+
     self = [self initWithLocalPathFolder:localPathFolder];
     if (self) {
         _baseRemoteURL = baseRemoteURL;
     }
-    
+
     return self;
 }
 
@@ -74,7 +74,7 @@
     if (self.isRunning) {
         return;
     }
-    
+
     self.stopAfterCurrentRequest = NO;
     self.isRunning = YES;
 
@@ -83,9 +83,9 @@
             [self.delegate downloadManagerWillStart:self];
         });
     }
-    
+
     self.numberOfFilesToDownload = [self.dataSource numberOfFilesToDownloadForDownloadManager:self];
-    
+
     if (self.numberOfFilesToDownload > 0) {
         [self _executeItemAtIndex:0];
     }
@@ -116,15 +116,20 @@
         [self _stop];
         return;
     }
-    
+
     __block NSString *pathForFileToDownload = nil;
     pathForFileToDownload = [self.dataSource downloadManager:self pathForFileToDownloadAtIndex:index];
-    
+
     if ([self.baseRemoteURL length] != 0 && ([pathForFileToDownload hasPrefix:@"http"] || [pathForFileToDownload hasPrefix:@"ftp"])) {
         pathForFileToDownload = [pathForFileToDownload stringByReplacingOccurrencesOfString:[pathForFileToDownload pathComponents][0] withString:@""];
     }
-    
-    NSString *localPathForFileToDownload = self.createFoldersHierarchy ? pathForFileToDownload : [[pathForFileToDownload pathComponents] lastObject];
+
+    NSString *localPathForFileToDownload;
+    if ([self.dataSource respondsToSelector:@selector(downloadManager:fileNameForFileToDownloadAtIndex:)]) {
+        localPathForFileToDownload = [self.dataSource downloadManager:self fileNameForFileToDownloadAtIndex:index];
+    }else{
+        localPathForFileToDownload = self.createFoldersHierarchy ? pathForFileToDownload : [[pathForFileToDownload pathComponents] lastObject];
+    }
     
     NSString *localPath = [self.localPathFolder stringByAppendingPathComponent:localPathForFileToDownload];
     if ([[NSFileManager defaultManager] fileExistsAtPath:localPath] && (self.forceDownload == NO)) {
@@ -142,18 +147,18 @@
         }
         return;
     }
-    
+
     NSString *urlForFileToDownload = [self.baseRemoteURL stringByAppendingPathComponent:pathForFileToDownload];
-    
+
     NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:urlForFileToDownload]];
     [NSURLConnection sendAsynchronousRequest:request
                                        queue:[NSOperationQueue mainQueue]
                            completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
-                               
+
                                // download failed
                                if (connectionError) {
                                    [self.failedURLs addObject:urlForFileToDownload];
-                                   
+
                                    if ([self.delegate respondsToSelector:@selector(downloadManager:didFailFileAtIndex:fromRemoteURL:toLocalPath:error:)]) {
                                        dispatch_async(_callbackQueue, ^{
                                            [self.delegate downloadManager:self didFailFileAtIndex:index
@@ -166,14 +171,14 @@
                                // download succeeded
                                else {
                                    NSError *error = nil;
-                                   
+
                                    // save on disk
                                    [[NSFileManager defaultManager] createDirectoryAtPath:[localPath stringByDeletingLastPathComponent]
                                                              withIntermediateDirectories:YES
                                                                               attributes:nil
                                                                                    error:&error];
                                    [data writeToFile:localPath options:NSDataWritingAtomic error:&error];
-                                   
+
                                    if (error) {
                                        if ([self.delegate respondsToSelector:@selector(downloadManager:didFailFileAtIndex:fromRemoteURL:toLocalPath:error:)]) {
                                            dispatch_async(_callbackQueue, ^{
@@ -198,7 +203,7 @@
                                            });
                                        }
                                    }
-                               
+
                                    // process next
                                    if (index + 1 < self.numberOfFilesToDownload) {
                                        [self _executeItemAtIndex:index + 1];

@@ -16,7 +16,7 @@
 
 - (NSUInteger)numberOfFilesToDownloadForDownloadManager:(ADBDownloadManager *)manager;
 - (NSString *)downloadManager:(ADBDownloadManager *)manager pathForFileToDownloadAtIndex:(NSUInteger)index;
-
+- (NSString *)downloadManager:(ADBDownloadManager *)manager fileNameForFileToDownloadAtIndex:(NSUInteger) index;
 @end
 
 @protocol ADBDownloadManagerDelegate <NSObject>
